@@ -187,12 +187,14 @@ void handleButtonDown() {
 void setup() {
   Serial.begin(9600);
 
+  // Read the alarm struct from EEPROM storage.
   EEPROM_readAnything(EEPROM_ADDRESS, alarm);
 
-
+  // Setup digital pins.
   pinMode(LED_PIN, OUTPUT);
   pinMode(SELECT_PIN, INPUT_PULLUP);
 
+  // Setup LED matrix at minimum brightness.
   matrix.begin(0x70);
   matrix.setBrightness(0);
   matrix.writeDisplay();
@@ -212,6 +214,7 @@ void setup() {
   yButtons.add(upBtn);
   yButtons.add(downBtn);
 
+  // Setup timer event intervals.
   tickEvent = t.every(20, tick, (void*)0);
   displayEvent = t.every(333, updateDisplay, (void*)0);
 }
@@ -261,7 +264,7 @@ void readSelectButton() {
 }
 
 void menuNext() {
-  unsigned long newUnixTime;;
+  unsigned long newUnixTime;
 
   // Save previous values if changed.
   if (isModified) {
