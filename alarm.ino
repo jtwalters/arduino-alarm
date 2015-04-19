@@ -19,6 +19,7 @@
 #define JOYSTICK_X_PIN A1
 #define JOYSTICK_Y_PIN A0
 #define SELECT_PIN A2
+#define MENU_TIMEOUT 30000
 #define MENU_MAX 3
 #define MENU_NONE 0
 #define MENU_TIME 1
@@ -56,7 +57,7 @@ enum {
 byte state = TIME;
 
 byte tickEvent = 0;
-byte displayEvent = 0;
+byte mainEvent = 0;
 byte menuIndex = 0;
 bool context = 0;
 bool isColonOn = true;
@@ -65,6 +66,7 @@ bool isLongPressed = false;
 bool isAlarmSound = false;
 bool hasSnoozed = false;
 unsigned long snoozeMillis = 0;
+unsigned long menuStartMillis = 0;
 
 Analog::Buttons xButtons = Analog::Buttons(JOYSTICK_X_PIN, BUTTON_DEBOUNCE, BUTTON_MARGIN);
 Analog::Buttons yButtons = Analog::Buttons(JOYSTICK_Y_PIN, BUTTON_DEBOUNCE, BUTTON_MARGIN);
@@ -102,9 +104,10 @@ void handleButtonLeft() {
       alarm.snoozeMinutes--;
     }
   }
+  menuStartMillis = millis();
   isModified = true;
   tone(SPEAKER_PIN, 1500, 10);
-  updateDisplay(&context);
+  update(&context);
 }
 
 // Joystick RIGHT
@@ -133,9 +136,10 @@ void handleButtonRight() {
       alarm.snoozeMinutes++;
     }
   }
+  menuStartMillis = millis();
   isModified = true;
   tone(SPEAKER_PIN, 2000, 10);
-  updateDisplay(&context);
+  update(&context);
 }
 
 // Joystick UP
@@ -156,9 +160,10 @@ void handleButtonUp() {
       alarm.hour++;
     }
   }
+  menuStartMillis = millis();
   isModified = true;
   tone(SPEAKER_PIN, 2000, 10);
-  updateDisplay(&context);
+  update(&context);
 }
 
 // Joystick DOWN
@@ -179,9 +184,10 @@ void handleButtonDown() {
       alarm.hour--;
     }
   }
+  menuStartMillis = millis();
   isModified = true;
   tone(SPEAKER_PIN, 1500, 10);
-  updateDisplay(&context);
+  update(&context);
 }
 
 void setup() {
@@ -215,8 +221,10 @@ void setup() {
   yButtons.add(downBtn);
 
   // Setup timer event intervals.
+  // The tick event runs much more frequently, at about 50Hz, for low-latency when reading buttons.
   tickEvent = t.every(20, tick, (void*)0);
-  displayEvent = t.every(333, updateDisplay, (void*)0);
+  // The main event runs about 3Hz to update the LEDs, piezo buzzer.
+  mainEvent = t.every(333, update, (void*)0);
 }
 
 void loop() {
@@ -225,6 +233,7 @@ void loop() {
 }
 
 void tick(void* context) {
+  // Check our buttons to see if they're pressed.
   readSelectButton();
   xButtons.check();
   yButtons.check();
@@ -281,6 +290,7 @@ void menuNext() {
   menuIndex++;
   isModified = false;
   state = MENU;
+  menuStartMillis = millis();
   if (menuIndex > MENU_MAX) {
     menuIndex = 0;
     state = TIME;
@@ -297,11 +307,13 @@ void menuNext() {
   }
 
   tone(SPEAKER_PIN, 2000, 20);
-  updateDisplay(&context);
+  update(&context);
 }
 
-void updateDisplay(void* context) {
-  unsigned long elapsed = snoozeElapsed();
+// Update the LEDs, piezo buzzer, etc.
+void update(void* context) {
+  unsigned long menuElapsed = millis() - menuStartMillis;
+  unsigned long snoozeElapsed = millis() - snoozeMillis;
   byte lightBufferIndex;
   byte hour;
   byte minute;
@@ -309,10 +321,19 @@ void updateDisplay(void* context) {
   bool pm = false;
   bool isSnooze = state == ALARM_SNOOZE;
   bool isAlarmTime = alarm.hour == dt.hour && alarm.minute == dt.minute;
-  bool isPastSnooze = elapsed > (60000 * (long)alarm.snoozeMinutes);
+  bool isPastSnooze = snoozeElapsed > (60000 * (long)alarm.snoozeMinutes);
+
+  // Exit the menu, unsaved, if timeout has elapsed.
+  if (state == MENU && menuElapsed > MENU_TIMEOUT) {
+    menuIndex = MENU_NONE;
+    state = TIME;
+  }
   
+  // Update the alarm status LED.
   digitalWrite(LED_PIN, alarm.status ? HIGH : LOW);
 
+  // Except in menu mode, show the current time.
+  // In menu mode, show the in progress edited time or alarm time, or snooze time.
   if (state != MENU) {
     dt = clock.getDateTime();
     hour = dt.hour;
@@ -343,6 +364,7 @@ void updateDisplay(void* context) {
     matrix.print((long)alarm.snoozeMinutes);
   }
 
+  // Toggle the colon display, unless in time mode, where we keep it constant on.
   if (state != TIME) {
     isColonOn = !isColonOn;
   }
@@ -350,8 +372,8 @@ void updateDisplay(void* context) {
     isColonOn = true;
   }
 
+  // If display a time value, convert to 12-hour time and update the LED matrix.
   if (isTime) {
-    // Draw 12-hour time.
     if (hour >= 12) {
       pm = true;
     }
@@ -390,8 +412,4 @@ void writeAlarmData() {
 void snoozeStart() {
   snoozeMillis = millis();
   hasSnoozed = true;
-}
-
-unsigned long snoozeElapsed() {
-  return millis() - snoozeMillis;
 }
