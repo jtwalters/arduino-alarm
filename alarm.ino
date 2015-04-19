@@ -8,6 +8,7 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_LEDBackpack.h>
 
+#define DEFAULT_TIME 1420070400UL // 1/1/2015 00:00:00 GMT
 #define BUTTON_PULLUP true
 #define BUTTON_INVERT true
 #define BUTTON_DEBOUNCE 1
@@ -19,8 +20,6 @@
 #define JOYSTICK_Y_PIN A0
 #define SELECT_PIN A2
 #define MENU_MAX 3
-#define TIME_HEADER "T"   // Header tag for serial time sync message
-#define DEFAULT_TIME 1420070400UL // 1/1/2015 00:00:00 GMT
 #define MENU_NONE 0
 #define MENU_TIME 1
 #define MENU_ALARM 2
