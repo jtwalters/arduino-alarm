@@ -191,7 +191,7 @@ void handleButtonDown() {
 }
 
 void setup() {
-  Serial.begin(9600);
+  // Serial.begin(9600);
 
   // Read the alarm struct from EEPROM storage.
   EEPROM_readAnything(EEPROM_ADDRESS, alarm);
@@ -306,7 +306,7 @@ void menuNext() {
     editTime.minute = dt.minute;    
   }
 
-  tone(SPEAKER_PIN, 2000, 20);
+  tone(SPEAKER_PIN, ALARM_FREQ, 20);
   update(&context);
 }
 
